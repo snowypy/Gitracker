@@ -196,7 +196,7 @@ async function createDiscordPayload(githubPayload) {
         .join('\n');
 
     embed.fields.push({
-        name: 'Recent Commits',
+        name: `📋 Recent Commits (${commitList.length})`,
         value: commitList || '_No commits available_',
         inline: false
     });
