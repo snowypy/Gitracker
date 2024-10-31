@@ -13,7 +13,8 @@ const {
     GITHUB_WEBHOOK_SECRET,
     DISCORD_WEBHOOK_URL,
     PORT = 3000,
-    PUBLIC_URL = `http://dedi1.snowy.codes:${PORT}`
+    PUBLIC_URL = `http://dedi1.snowy.codes:${PORT}`,
+    GITHUB_PAT,
 } = process.env;
 
 const languageExtensions = {
@@ -55,7 +56,7 @@ async function fetchCommitStats(owner, repo, commitSha) {
     try {
         const response = await axios.get(url, {
             headers: {
-                'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                'Authorization': `token ${GITHUB_PAT}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
         });
