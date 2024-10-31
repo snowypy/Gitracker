@@ -29,6 +29,7 @@ const languageExtensions = {
     go: { name: 'Go', logo: 'go' },
     rs: { name: 'Rust', logo: 'rust' },
     html: { name: 'HTML', logo: 'html' },
+    md: { name: 'Markdown', logo: 'markdown' },
     css: { name: 'CSS', logo: 'css' },
     swift: { name: 'Swift', logo: 'swift' },
     kt: { name: 'Kotlin', logo: 'kotlin' }
