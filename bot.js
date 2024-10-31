@@ -6,13 +6,14 @@ require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const {
     GITHUB_WEBHOOK_SECRET,
     DISCORD_WEBHOOK_URL,
     PORT = 3000,
-    PUBLIC_URL = `http://dedi1.snowy.codes:${PORT}`
+    PUBLIC_URL = `http://localhost:${PORT}`
 } = process.env;
 
 const languageExtensions = {
@@ -31,6 +32,10 @@ const languageExtensions = {
     swift: { name: 'Swift', logo: 'swift' },
     kt: { name: 'Kotlin', logo: 'kotlin' }
 };
+
+function getGitHubUserAvatar(username) {
+    return `https://github.com/${username}.png`;
+}
 
 function getLanguageLogoPath(language) {
     return `${PUBLIC_URL}/assets/languages/${language}.png`;
@@ -54,7 +59,6 @@ function analyzeFiles(commits) {
     };
 
     commits.forEach(commit => {
-        // Count file extensions for language detection
         [...commit.added, ...commit.modified].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
@@ -62,7 +66,6 @@ function analyzeFiles(commits) {
             }
         });
 
-        // Categorize files
         commit.added.forEach(file => fileCategories.added.push(file));
         commit.modified.forEach(file => fileCategories.modified.push(file));
         commit.removed.forEach(file => fileCategories.removed.push(file));
@@ -100,14 +103,17 @@ function createDiscordPayload(githubPayload) {
     const repo = githubPayload.repository;
     const { mostUsedLang, fileCategories } = analyzeFiles(commits);
 
+    const authorUsername = commits[0].author.username;
+    const avatarUrl = getGitHubUserAvatar(authorUsername);
+
     const embed = {
         title: `${commits.length} New Commit${commits.length > 1 ? 's' : ''} to ${repo.name}`,
         url: commits[0].url,
         color: 0x0099FF,
         author: {
             name: commits[0].author.name,
-            url: `https://github.com/${commits[0].author.username}`,
-            logo: commits[0].author.avatar
+            url: `https://github.com/${authorUsername}`,
+            icon_url: avatarUrl
         },
         fields: [
             {
