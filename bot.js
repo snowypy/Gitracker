@@ -1,20 +1,14 @@
-// Required dependencies
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const express = require('express');
 const crypto = require('crypto');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
-});
-
 app.use(express.json());
 
 const {
-    DISCORD_TOKEN,
-    DISCORD_CHANNEL_ID,
     GITHUB_WEBHOOK_SECRET,
+    DISCORD_WEBHOOK_URL,
     PORT = 3000
 } = process.env;
 
@@ -27,48 +21,63 @@ function verifyGitHubWebhook(req) {
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 }
 
-function createCommitEmbed(payload) {
-    const commit = payload.commits[0];
-    const repo = payload.repository;
+function createDiscordPayload(githubPayload) {
+    const commit = githubPayload.commits[0];
+    const repo = githubPayload.repository;
 
-    return new EmbedBuilder()
-        .setColor(0x0099FF)
-        .setTitle(`New Commit to ${repo.name}`)
-        .setURL(commit.url)
-        .setAuthor({
-            name: commit.author.name,
-            url: `https://github.com/${commit.author.username}`
-        })
-        .setDescription(commit.message)
-        .addFields(
-            { name: 'Repository', value: repo.full_name, inline: true },
-            { name: 'Branch', value: payload.ref.replace('refs/heads/', ''), inline: true },
-            { name: 'Files Changed', value: `${commit.added.length + commit.modified.length + commit.removed.length}`, inline: true }
-        )
-        .setTimestamp(new Date(commit.timestamp))
-        .setFooter({ text: `Commit ${commit.id.substring(0, 7)}` });
+    return {
+        embeds: [{
+            title: `New Commit to ${repo.name}`,
+            url: commit.url,
+            color: 0x0099FF,
+            author: {
+                name: commit.author.name,
+                url: `https://github.com/${commit.author.username}`
+            },
+            description: commit.message,
+            fields: [
+                {
+                    name: 'Repository',
+                    value: repo.full_name,
+                    inline: true
+                },
+                {
+                    name: 'Branch',
+                    value: githubPayload.ref.replace('refs/heads/', ''),
+                    inline: true
+                },
+                {
+                    name: 'Files Changed',
+                    value: `${commit.added.length + commit.modified.length + commit.removed.length}`,
+                    inline: true
+                }
+            ],
+            timestamp: new Date(commit.timestamp).toISOString(),
+            footer: {
+                text: `Commit ${commit.id.substring(0, 7)}`
+            }
+        }]
+    };
 }
 
-client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}`);
-});
-
 app.post('/webhook', async (req, res) => {
-
-    if (!verifyGitHubWebhook(req)) {
-        return res.status(401).send('Invalid signature');
-    }
-
-    if (req.headers['x-github-event'] !== 'push') {
-        return res.status(200).send('Event ignored');
-    }
-
     try {
-        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
+        if (!verifyGitHubWebhook(req)) {
+            return res.status(401).send('Invalid signature');
+        }
+
+        if (req.headers['x-github-event'] !== 'push') {
+            return res.status(200).send('Event ignored');
+        }
 
         if (req.body.commits && req.body.commits.length > 0) {
-            const embed = createCommitEmbed(req.body);
-            await channel.send({ embeds: [embed] });
+            const discordPayload = createDiscordPayload(req.body);
+
+            await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
         }
 
         res.status(200).send('Webhook processed');
@@ -78,7 +87,11 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-client.login(DISCORD_TOKEN);
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
+});
+
 app.listen(PORT, () => {
     console.log(`Webhook server listening on port ${PORT}`);
 });
