@@ -245,10 +245,12 @@ async function createDiscordPayload(githubPayload) {
 app.post('/webhook', async (req, res) => {
     try {
         if (!verifyGitHubWebhook(req)) {
+            console.warn('[WARN] Invalid signature');
             return res.status(401).send('Invalid signature');
         }
 
         if (req.headers['x-github-event'] !== 'push') {
+            console.warn('[WARN] Event ignored');
             return res.status(200).send('Event ignored');
         }
 
@@ -261,6 +263,7 @@ app.post('/webhook', async (req, res) => {
         }
 
         res.status(200).send('Webhook processed');
+        console.info('[INFO] Webhook processed');
     } catch (error) {
         console.error('Error processing webhook:', error);
         res.status(500).send('Error processing webhook');
@@ -270,8 +273,10 @@ app.post('/webhook', async (req, res) => {
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
+    console.error('[ERROR] Something broke!');
 });
 
 app.listen(PORT, () => {
-    console.log(`Webhook server listening on port ${PORT}`);
+    console.info(`[INFO] Webhook server listening on the ${PORT} port.`);
+    console.info(`[INFO] Public URL: ${PUBLIC_URL}`);
 });
