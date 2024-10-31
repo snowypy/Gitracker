@@ -13,7 +13,7 @@ const {
     GITHUB_WEBHOOK_SECRET,
     DISCORD_WEBHOOK_URL,
     PORT = 3000,
-    PUBLIC_URL = `http://localhost:${PORT}`
+    PUBLIC_URL = `http://dedi1.snowy.codes:${PORT}`
 } = process.env;
 
 const languageExtensions = {
@@ -48,6 +48,49 @@ function verifyGitHubWebhook(req) {
     const hmac = crypto.createHmac('sha256', GITHUB_WEBHOOK_SECRET);
     const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+}
+
+async function fetchCommitStats(owner, repo, commitSha) {
+    const url = `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`;
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        const { stats } = response.data;
+        return {
+            additions: stats.additions,
+            deletions: stats.deletions,
+            totalChanges: stats.total
+        };
+    } catch (error) {
+        console.error('Error fetching commit stats:', error);
+        return null;
+    }
+}
+
+async function getCommitsLineChanges(owner, repo, commitShas) {
+    let totalAdditions = 0;
+    let totalDeletions = 0;
+    let totalChanges = 0;
+
+    for (const commitSha of commitShas) {
+        const commitStats = await fetchCommitStats(owner, repo, commitSha);
+        if (commitStats) {
+            totalAdditions += commitStats.additions;
+            totalDeletions += commitStats.deletions;
+            totalChanges += commitStats.totalChanges;
+        }
+    }
+
+    return {
+        totalAdditions,
+        totalDeletions,
+        totalChanges
+    };
 }
 
 function analyzeFiles(commits) {
@@ -98,13 +141,16 @@ function formatFileList(files, limit = 10) {
         : formatted;
 }
 
-function createDiscordPayload(githubPayload) {
-    const { commits } = githubPayload;
-    const repo = githubPayload.repository;
+async function createDiscordPayload(githubPayload) {
+    const { commits, repository: repo } = githubPayload;
     const { mostUsedLang, fileCategories } = analyzeFiles(commits);
-
     const authorUsername = commits[0].author.username;
     const avatarUrl = getGitHubUserAvatar(authorUsername);
+    const { totalAdditions, totalDeletions, totalChanges } = await getCommitsLineChanges(
+        repo.owner.login,
+        repo.name,
+        commits.map(commit => commit.id)
+    );
 
     const embed = {
         title: `${commits.length} New Commit${commits.length > 1 ? 's' : ''} to ${repo.name}`,
@@ -124,6 +170,21 @@ function createDiscordPayload(githubPayload) {
             {
                 name: 'Branch',
                 value: githubPayload.ref.replace('refs/heads/', ''),
+                inline: true
+            },
+            {
+                name: 'Total Additions',
+                value: totalAdditions.toString(),
+                inline: true
+            },
+            {
+                name: 'Total Deletions',
+                value: totalDeletions.toString(),
+                inline: true
+            },
+            {
+                name: 'Total Changes',
+                value: totalChanges.toString(),
                 inline: true
             }
         ],
@@ -191,7 +252,7 @@ app.post('/webhook', async (req, res) => {
         }
 
         if (req.body.commits && req.body.commits.length > 0) {
-            const discordPayload = createDiscordPayload(req.body);
+            const discordPayload = await createDiscordPayload(req.body);
 
             await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
                 headers: { 'Content-Type': 'application/json' }
