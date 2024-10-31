@@ -1,33 +1,40 @@
 const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const {
     GITHUB_WEBHOOK_SECRET,
     DISCORD_WEBHOOK_URL,
-    PORT = 3000
+    PORT = 3000,
+    PUBLIC_URL = `http://dedi1.snowy.codes:${PORT}`
 } = process.env;
 
 const languageExtensions = {
-    js: { name: 'JavaScript', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg' },
-    ts: { name: 'TypeScript', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg' },
-    py: { name: 'Python', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg' },
-    java: { name: 'Java', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg' },
-    cpp: { name: 'C++', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/cplusplus/cplusplus-original.svg' },
-    cs: { name: 'C#', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/csharp/csharp-original.svg' },
-    rb: { name: 'Ruby', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/ruby/ruby-original.svg' },
-    php: { name: 'PHP', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/php/php-original.svg' },
-    go: { name: 'Go', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg' },
-    rs: { name: 'Rust', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/rust/rust-plain.svg' },
-    html: { name: 'HTML', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg' },
-    css: { name: 'CSS', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg' },
-    swift: { name: 'Swift', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/swift/swift-original.svg' },
-    kt: { name: 'Kotlin', logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/kotlin/kotlin-original.svg' }
+    js: { name: 'JavaScript', logo: 'javascript' },
+    ts: { name: 'TypeScript', logo: 'typescript' },
+    py: { name: 'Python', logo: 'python' },
+    java: { name: 'Java', logo: 'java' },
+    cpp: { name: 'C++', logo: 'cpp' },
+    cs: { name: 'C#', logo: 'csharp' },
+    rb: { name: 'Ruby', logo: 'ruby' },
+    php: { name: 'PHP', logo: 'php' },
+    go: { name: 'Go', logo: 'go' },
+    rs: { name: 'Rust', logo: 'rust' },
+    html: { name: 'HTML', logo: 'html' },
+    css: { name: 'CSS', logo: 'css' },
+    swift: { name: 'Swift', logo: 'swift' },
+    kt: { name: 'Kotlin', logo: 'kotlin' }
 };
+
+function getLanguageLogoPath(language) {
+    return `${PUBLIC_URL}/assets/languages/${language}.png`;
+}
 
 function verifyGitHubWebhook(req) {
     const signature = req.headers['x-hub-signature-256'];
@@ -47,6 +54,7 @@ function analyzeFiles(commits) {
     };
 
     commits.forEach(commit => {
+        // Count file extensions for language detection
         [...commit.added, ...commit.modified].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
@@ -54,6 +62,7 @@ function analyzeFiles(commits) {
             }
         });
 
+        // Categorize files
         commit.added.forEach(file => fileCategories.added.push(file));
         commit.modified.forEach(file => fileCategories.modified.push(file));
         commit.removed.forEach(file => fileCategories.removed.push(file));
@@ -64,7 +73,10 @@ function analyzeFiles(commits) {
     Object.entries(languageCounts).forEach(([ext, count]) => {
         if (count > maxCount) {
             maxCount = count;
-            mostUsedLang = languageExtensions[ext];
+            mostUsedLang = {
+                ...languageExtensions[ext],
+                logoUrl: getLanguageLogoPath(languageExtensions[ext].logo)
+            };
         }
     });
 
@@ -116,7 +128,7 @@ function createDiscordPayload(githubPayload) {
 
     if (mostUsedLang) {
         embed.thumbnail = {
-            url: mostUsedLang.logo
+            url: mostUsedLang.logoUrl
         };
         embed.fields.push({
             name: 'Primary Language',
