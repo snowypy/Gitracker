@@ -173,28 +173,6 @@ async function createDiscordPayload(githubPayload) {
                 name: 'Branch',
                 value: githubPayload.ref.replace('refs/heads/', ''),
                 inline: true
-            },
-            {
-                name: 'Most Used Language',
-                value: mostUsedLang
-                    ? `[${mostUsedLang.name}](${mostUsedLang.logoUrl})`
-                    : '_None_',
-                inline: true
-            },
-            {
-                name: 'Total Additions',
-                value: '${totalAdditions.toString()} new lines',
-                inline: false
-            },
-            {
-                name: 'Total Deletions',
-                value: '${totalDeletions.toString()} lines removed',
-                inline: false
-            },
-            {
-                name: 'Total Changes',
-                value: '${totalChanges.toString()} lines changed',
-                inline: false
             }
         ],
         timestamp: new Date(commits[0].timestamp).toISOString(),
@@ -202,6 +180,17 @@ async function createDiscordPayload(githubPayload) {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
         }
     };
+
+    if (mostUsedLang) {
+        embed.thumbnail = {
+            url: mostUsedLang.logoUrl
+        };
+        embed.fields.push({
+            name: 'Primary Language',
+            value: mostUsedLang.name,
+            inline: true
+        });
+    }
 
     if (commits.length > 1) {
         const commitList = commits
@@ -235,6 +224,12 @@ async function createDiscordPayload(githubPayload) {
             inline: false
         });
     }
+
+    embed.fields.push({
+        name: `💻 Line Changes (${totalAdditions + totalDeletions + totalChanges})`,
+        value: `+**${totalAdditions}** -${totalDeletions} ~${totalChanges}`,
+        inline: false
+    });
 
     return { embeds: [embed] };
 }
