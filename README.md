@@ -49,3 +49,11 @@
 >   1. Name it 'gitracker' and set the description and expire time as you wish.
 >   2. Copy the key it gives you and store it somewhere safe AND in your `GITHUB_PAT` value
 >   3. 🔥 Your access token is now setup!
+
+# Examples:
+![image](https://github.com/user-attachments/assets/7dcf2ab6-1a8d-4707-a242-c4b71c3820c7) ![image](https://github.com/user-attachments/assets/469a7605-5d67-44e7-9806-7123ac956230)
+![image](https://github.com/user-attachments/assets/6c1a5b8c-fd0a-4109-ac75-c77d801d5116) ![image](https://github.com/user-attachments/assets/33d4018c-64d4-435f-9097-c06637b72b30)
+
+
+
+
