@@ -1,7 +1,7 @@
 # 🚀 Git Tracker (gitracker)
 
 > [!NOTE]
-> This app is almost completely untested however, during testing there were 0 issues (Javascript testing). Feel free to create a github issue if you want me to add any logos to the public build.
+> This app was made in 1.5 hours please forgive any issues, during testing there were 0 issues (Javascript testing). Feel free to create a github issue if you want me to add any logos to the public build.
 
 > [!IMPORTANT]
 > Any issues? Email `me@snowyjs.lol` or contact me on discord @ `snowyjs`. I would love to help!
