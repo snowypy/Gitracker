@@ -154,7 +154,8 @@ async function createDiscordPayload(githubPayload) {
     );
 
     const embed = {
-        title: `${commits.length} New Commit${commits.length > 1 ? 's' : ''} to ${repo.name}`,
+        title: `:partying_face: **Service Updated**`,
+        description: '**${commits.length}** new commit${commits.length > 1 ? \'s\' : \'\'} to **${repo.name}** at ${repo.owner.login}',
         url: commits[0].url,
         color: 0x0099FF,
         author: {
@@ -174,19 +175,26 @@ async function createDiscordPayload(githubPayload) {
                 inline: true
             },
             {
-                name: 'Total Additions',
-                value: totalAdditions.toString(),
+                name: 'Most Used Language',
+                value: mostUsedLang
+                    ? `[${mostUsedLang.name}](${mostUsedLang.logoUrl})`
+                    : '_None_',
                 inline: true
+            },
+            {
+                name: 'Total Additions',
+                value: '${totalAdditions.toString()} new lines',
+                inline: false
             },
             {
                 name: 'Total Deletions',
-                value: totalDeletions.toString(),
-                inline: true
+                value: '${totalDeletions.toString()} lines removed',
+                inline: false
             },
             {
                 name: 'Total Changes',
-                value: totalChanges.toString(),
-                inline: true
+                value: '${totalChanges.toString()} lines changed',
+                inline: false
             }
         ],
         timestamp: new Date(commits[0].timestamp).toISOString(),
@@ -194,17 +202,6 @@ async function createDiscordPayload(githubPayload) {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
         }
     };
-
-    if (mostUsedLang) {
-        embed.thumbnail = {
-            url: mostUsedLang.logoUrl
-        };
-        embed.fields.push({
-            name: 'Primary Language',
-            value: mostUsedLang.name,
-            inline: true
-        });
-    }
 
     if (commits.length > 1) {
         const commitList = commits
