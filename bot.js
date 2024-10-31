@@ -227,8 +227,8 @@ async function createDiscordPayload(githubPayload) {
     }
 
     embed.fields.push({
-        name: `💻 Line Changes (${totalAdditions + totalDeletions + totalChanges})`,
-        value: `+**${totalAdditions}** -${totalDeletions} ~${totalChanges}`,
+        name: `💻 Line Changes (${totalChanges})`,
+        value: `+${totalAdditions} new lines -${totalDeletions} removed lines`,
         inline: false
     });
 
