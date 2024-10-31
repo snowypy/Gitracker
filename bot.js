@@ -154,10 +154,9 @@ async function createDiscordPayload(githubPayload) {
     );
 
     const embed = {
-        title: `:partying_face: **Service Updated**`,
-        description: '**${commits.length}** new commit${commits.length > 1 ? \'s\' : \'\'} to **${repo.name}** at ${repo.owner.login}',
-        url: commits[0].url,
-        color: 0x0099FF,
+        title: `:sparkles: **Service Update Deployed!** :rocket:`,
+        description: `**${commits.length}** new commit${commits.length > 1 ? 's' : ''} to **${repo.name}** by **${repo.owner.login}**`,
+        color: 0x1ABC9C,
         author: {
             name: commits[0].author.name,
             url: `https://github.com/${authorUsername}`,
@@ -192,14 +191,15 @@ async function createDiscordPayload(githubPayload) {
         });
     }
 
-    if (commits.length > 1) {
-        const commitList = commits
-            .map(commit => `[\`${commit.id.substring(0, 7)}\`](${commit.url}) ${commit.message.split('\n')[0]}`)
-            .join('\n');
-        embed.description = commitList;
-    } else {
-        embed.description = commits[0].message;
-    }
+    const commitList = commits
+        .map(commit => `[\`${commit.id.substring(0, 7)}\`](${commit.url}) ${commit.message.split('\n')[0]}`)
+        .join('\n');
+
+    embed.fields.push({
+        name: 'Recent Commits',
+        value: commitList || '_No commits available_',
+        inline: false
+    });
 
     if (fileCategories.added.length > 0) {
         embed.fields.push({
@@ -233,6 +233,7 @@ async function createDiscordPayload(githubPayload) {
 
     return { embeds: [embed] };
 }
+
 
 app.post('/webhook', async (req, res) => {
     try {
