@@ -106,7 +106,8 @@ function createDiscordPayload(githubPayload) {
         color: 0x0099FF,
         author: {
             name: commits[0].author.name,
-            url: `https://github.com/${commits[0].author.username}`
+            url: `https://github.com/${commits[0].author.username}`,
+            logo: commits[0].author.avatar
         },
         fields: [
             {
