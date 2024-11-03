@@ -57,6 +57,28 @@ async function fetchCommitStats(owner, repo, commitSha) {
     }
 }
 
+async function fetchCommitFiles(owner, repo, commitSha) {
+    const url = `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`;
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        const files = response.data.files;
+        return {
+            added: files.filter(file => file.status === 'added').map(file => file.filename),
+            modified: files.filter(file => file.status === 'modified').map(file => file.filename),
+            removed: files.filter(file => file.status === 'removed').map(file => file.filename),
+        };
+    } catch (error) {
+        console.error('Error fetching commit files:', error.message);
+        return { added: [], modified: [], removed: [] };
+    }
+}
+
 async function getCommitsLineChanges(owner, repo, commitShas) {
     let totalAdditions = 0;
     let totalDeletions = 0;
@@ -81,7 +103,7 @@ async function getCommitsLineChanges(owner, repo, commitShas) {
     };
 }
 
-function analyzeFiles(commits) {
+function analyzeFiles(commits, allFileChanges) {
     const languageCounts = {};
     const fileCategories = {
         added: [],
@@ -90,22 +112,20 @@ function analyzeFiles(commits) {
     };
 
     commits.forEach(commit => {
-        const addedFiles = Array.isArray(commit.added) ? commit.added : [];
-        const modifiedFiles = Array.isArray(commit.modified) ? commit.modified : [];
-        const removedFiles = Array.isArray(commit.removed) ? commit.removed : [];
+        const { added, modified, removed } = allFileChanges[commit.id] || {};
 
-        console.debug(`Analyzing commit ${commit.id}:`, { addedFiles, modifiedFiles, removedFiles });
+        console.debug(`Analyzing commit ${commit.id}:`, { added, modified, removed });
 
-        [...addedFiles, ...modifiedFiles].forEach(file => {
+        [...added, ...modified].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
                 languageCounts[ext] = (languageCounts[ext] || 0) + 1;
             }
         });
 
-        fileCategories.added.push(...addedFiles);
-        fileCategories.modified.push(...modifiedFiles);
-        fileCategories.removed.push(...removedFiles);
+        fileCategories.added.push(...added);
+        fileCategories.modified.push(...modified);
+        fileCategories.removed.push(...removed);
     });
 
     console.debug('Language counts:', languageCounts);
@@ -141,7 +161,13 @@ async function createDiscordPayload(githubPayload) {
     const { commits, repository: repo } = githubPayload;
     console.debug('Received GitHub payload:', { commits, repo });
 
-    const { mostUsedLang, fileCategories } = analyzeFiles(commits);
+    const allFileChanges = {};
+    for (const commit of commits) {
+        const fileChanges = await fetchCommitFiles(repo.owner.login, repo.name, commit.id);
+        allFileChanges[commit.id] = fileChanges;
+    }
+
+    const { mostUsedLang, fileCategories } = analyzeFiles(commits, allFileChanges);
     const authorUsername = commits[0].author.username;
     const avatarUrl = getGitHubUserAvatar(authorUsername);
     const { totalAdditions, totalDeletions, totalChanges } = await getCommitsLineChanges(
