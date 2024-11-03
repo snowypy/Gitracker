@@ -86,16 +86,20 @@ function analyzeFiles(commits) {
     };
 
     commits.forEach(commit => {
-        [...commit.added, ...commit.modified].forEach(file => {
+        const addedFiles = Array.isArray(commit.added) ? commit.added : [];
+        const modifiedFiles = Array.isArray(commit.modified) ? commit.modified : [];
+        const removedFiles = Array.isArray(commit.removed) ? commit.removed : [];
+
+        [...addedFiles, ...modifiedFiles].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
                 languageCounts[ext] = (languageCounts[ext] || 0) + 1;
             }
         });
 
-        commit.added.forEach(file => fileCategories.added.push(file));
-        commit.modified.forEach(file => fileCategories.modified.push(file));
-        commit.removed.forEach(file => fileCategories.removed.push(file));
+        fileCategories.added.push(...addedFiles);
+        fileCategories.modified.push(...modifiedFiles);
+        fileCategories.removed.push(...removedFiles);
     });
 
     let mostUsedLang = null;
