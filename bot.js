@@ -31,7 +31,7 @@ function getGitHubUserAvatar(username) {
 }
 
 function getLanguageLogoPath(language) {
-    return `https://raw.githubusercontent.com/snowypy/gitracker/assets/languages/${language}.png`;
+    return `https://raw.githubusercontent.com/snowypy/Gitracker/refs/heads/master/assets/languages/${language}.png`;
 }
 
 async function fetchCommitStats(owner, repo, commitSha) {
