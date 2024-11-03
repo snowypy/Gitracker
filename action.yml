@@ -1,13 +1,6 @@
 name: "Push via Gitracker"
 description: "A GitHub Action to send commit log to Discord."
 author: "SnowyJS"
-inputs:
-  GITHUB_WEBHOOK_SECRET:
-    description: "The GitHub webhook secret."
-    required: true
-  DISCORD_WEBHOOK_URL:
-    description: "The Discord webhook URL."
-    required: true
 
 runs:
   using: node20
