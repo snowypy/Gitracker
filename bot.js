@@ -1,20 +1,11 @@
-const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
-const path = require('path');
 require('dotenv').config();
-
-const app = express();
-app.use(express.json());
-
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const {
     GITHUB_WEBHOOK_SECRET,
     DISCORD_WEBHOOK_URL,
-    PORT = 3000,
-    PUBLIC_URL = `http://dedi1.snowy.codes:${PORT}`,
-    GITHUB_PAT,
+    GITHUB_TOKEN
 } = process.env;
 
 const languageExtensions = {
@@ -40,16 +31,7 @@ function getGitHubUserAvatar(username) {
 }
 
 function getLanguageLogoPath(language) {
-    return `${PUBLIC_URL}/assets/languages/${language}.png`;
-}
-
-function verifyGitHubWebhook(req) {
-    const signature = req.headers['x-hub-signature-256'];
-    if (!signature) return false;
-
-    const hmac = crypto.createHmac('sha256', GITHUB_WEBHOOK_SECRET);
-    const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+    return `https://raw.githubusercontent.com/snowypy/gitracker/assets/languages/${language}.png`;
 }
 
 async function fetchCommitStats(owner, repo, commitSha) {
@@ -57,7 +39,7 @@ async function fetchCommitStats(owner, repo, commitSha) {
     try {
         const response = await axios.get(url, {
             headers: {
-                'Authorization': `token ${GITHUB_PAT}`,
+                'Authorization': `Bearer ${GITHUB_TOKEN}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
         });
@@ -69,7 +51,7 @@ async function fetchCommitStats(owner, repo, commitSha) {
             totalChanges: stats.total
         };
     } catch (error) {
-        console.error('Error fetching commit stats:', error);
+        console.error('Error fetching commit stats:', error.message);
         return null;
     }
 }
@@ -235,42 +217,19 @@ async function createDiscordPayload(githubPayload) {
     return { embeds: [embed] };
 }
 
-
-app.post('/webhook', async (req, res) => {
+async function runBotLogic() {
     try {
-        if (!verifyGitHubWebhook(req)) {
-            console.warn('[WARN] Invalid signature');
-            return res.status(401).send('Invalid signature');
-        }
-
-        if (req.headers['x-github-event'] !== 'push') {
-            console.warn('[WARN] Event ignored');
-            return res.status(200).send('Event ignored');
-        }
-
-        if (req.body.commits && req.body.commits.length > 0) {
-            const discordPayload = await createDiscordPayload(req.body);
-
-            await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        res.status(200).send('Webhook processed');
-        console.info('[INFO] Webhook processed');
+        const githubPayload = require(process.env.GITHUB_EVENT_PATH);
+        const discordPayload = await createDiscordPayload(githubPayload);
+        await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        console.info('[INFO] Discord notification sent successfully.');
     } catch (error) {
         console.error('Error processing webhook:', error);
-        res.status(500).send('Error processing webhook');
     }
-});
+}
 
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
-    console.error('[ERROR] Something broke!');
-});
-
-app.listen(PORT, () => {
-    console.info(`[INFO] Webhook server listening on the ${PORT} port.`);
-    console.info(`[INFO] Public URL: ${PUBLIC_URL}`);
-});
+if (require.main === module) {
+    runBotLogic();
+}
