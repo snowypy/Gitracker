@@ -45,6 +45,7 @@ async function fetchCommitStats(owner, repo, commitSha) {
         });
 
         const { stats } = response.data;
+        console.debug(`Fetched stats for commit ${commitSha}:`, stats);
         return {
             additions: stats.additions,
             deletions: stats.deletions,
@@ -67,9 +68,12 @@ async function getCommitsLineChanges(owner, repo, commitShas) {
             totalAdditions += commitStats.additions;
             totalDeletions += commitStats.deletions;
             totalChanges += commitStats.totalChanges;
+        } else {
+            console.warn(`No commit stats found for ${commitSha}`);
         }
     }
 
+    console.debug(`Total changes for ${repo.name}: +${totalAdditions}, -${totalDeletions}, total: ${totalChanges}`);
     return {
         totalAdditions,
         totalDeletions,
@@ -90,6 +94,8 @@ function analyzeFiles(commits) {
         const modifiedFiles = Array.isArray(commit.modified) ? commit.modified : [];
         const removedFiles = Array.isArray(commit.removed) ? commit.removed : [];
 
+        console.debug(`Analyzing commit ${commit.id}:`, { addedFiles, modifiedFiles, removedFiles });
+
         [...addedFiles, ...modifiedFiles].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
@@ -102,6 +108,7 @@ function analyzeFiles(commits) {
         fileCategories.removed.push(...removedFiles);
     });
 
+    console.debug('Language counts:', languageCounts);
     let mostUsedLang = null;
     let maxCount = 0;
     Object.entries(languageCounts).forEach(([ext, count]) => {
@@ -114,6 +121,7 @@ function analyzeFiles(commits) {
         }
     });
 
+    console.debug(`Most used language:`, mostUsedLang);
     return { mostUsedLang, fileCategories };
 }
 
@@ -131,6 +139,8 @@ function formatFileList(files, limit = 10) {
 
 async function createDiscordPayload(githubPayload) {
     const { commits, repository: repo } = githubPayload;
+    console.debug('Received GitHub payload:', { commits, repo });
+
     const { mostUsedLang, fileCategories } = analyzeFiles(commits);
     const authorUsername = commits[0].author.username;
     const avatarUrl = getGitHubUserAvatar(authorUsername);
@@ -218,12 +228,14 @@ async function createDiscordPayload(githubPayload) {
         inline: false
     });
 
+    console.debug('Constructed Discord embed payload:', embed);
     return { embeds: [embed] };
 }
 
 async function runBotLogic() {
     try {
         const githubPayload = require(process.env.GITHUB_EVENT_PATH);
+        console.debug('Running bot logic with GitHub payload:', githubPayload);
         const discordPayload = await createDiscordPayload(githubPayload);
         await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
             headers: { 'Content-Type': 'application/json' }
