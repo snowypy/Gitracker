@@ -15,6 +15,55 @@
 > You can deploy Gitracker [Here](https://github.com/marketplace/actions/push-via-gitracker)
 > You will need to set up one secret in your repository settings, `DISCORD_WEBHOOK_URL`. To do so, go to your repository settings, then secrets, then new repository secret. Name it `DISCORD_WEBHOOK_URL` and paste your webhook URL in the value box.  
 
+# Example Workflow File:
+
+```
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          repository: snowypy/gitracker
+          path: gitracker
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20' 
+
+      - name: Check directory
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Files in the directory:"
+          ls -la
+
+      - name: Install dependencies
+        run: |
+          cd gitracker
+          npm install
+        
+      - name: Push via Gitracker
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        uses: snowypy/Gitracker@master
+```
+
 # Examples:
 ![image](https://github.com/user-attachments/assets/7dcf2ab6-1a8d-4707-a242-c4b71c3820c7) ![image](https://github.com/user-attachments/assets/469a7605-5d67-44e7-9806-7123ac956230)
 ![image](https://github.com/user-attachments/assets/6c1a5b8c-fd0a-4109-ac75-c77d801d5116) ![image](https://github.com/user-attachments/assets/33d4018c-64d4-435f-9097-c06637b72b30)
