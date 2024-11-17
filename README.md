@@ -33,30 +33,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          repository: snowypy/gitracker
-          path: gitracker
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20' 
-
-      - name: Check directory
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Files in the directory:"
-          ls -la
-
-      - name: Install dependencies
-        run: |
-          cd gitracker
-          npm install
-        
+    
       - name: Push via Gitracker
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
