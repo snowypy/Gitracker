@@ -263,6 +263,11 @@ async function runBotLogic() {
         const githubPayload = require(process.env.GITHUB_EVENT_PATH);
         console.debug('Running bot logic with GitHub payload:', githubPayload);
         const discordPayload = await createDiscordPayload(githubPayload);
+        if (discordPayload >= 1024) {
+            console.error('[ERROR] Discord payload exceeds 1024 characters. Splitting into multiple messages is not supported YET. Hiding Full File List for now.');
+            discordPayload.embeds[0].fields = discordPayload.embeds[0].fields.filter(field => !field.name.includes('Files'));
+            return;
+        }
         await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
             headers: { 'Content-Type': 'application/json' }
         });
