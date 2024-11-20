@@ -258,16 +258,61 @@ async function createDiscordPayload(githubPayload) {
     return { embeds: [embed] };
 }
 
+async function createIssuePayload(githubPayload) {
+    const { issue, repository: repo } = githubPayload;
+    console.debug('Received GitHub issue payload:', { issue, repo });
+
+    const embed = {
+        title: `:bug: **New Issue Created!** :beetle:`,
+        description: `**${issue.title}**\n\n${issue.body}`,
+        color: 0xE74C3C,
+        author: {
+            name: issue.user.login,
+            url: `https://github.com/${issue.user.login}`,
+            icon_url: getGitHubUserAvatar(issue.user.login)
+        },
+        fields: [
+            {
+                name: 'Repository',
+                value: repo.full_name,
+                inline: true
+            },
+            {
+                name: 'Issue Number',
+                value: `#${issue.number}`,
+                inline: true
+            }
+        ],
+        timestamp: new Date(issue.created_at).toISOString(),
+        footer: {
+            text: `Issue ID: ${issue.id}`
+        }
+    };
+
+    console.debug('Constructed Discord issue payload:', embed);
+    return { embeds: [embed] };
+}
+
 async function runBotLogic() {
     try {
         const githubPayload = require(process.env.GITHUB_EVENT_PATH);
         console.debug('Running bot logic with GitHub payload:', githubPayload);
-        const discordPayload = await createDiscordPayload(githubPayload);
-        if (discordPayload >= 1024) {
-            console.error('[ERROR] Discord payload exceeds 1024 characters. Splitting into multiple messages is not supported YET. Hiding Full File List for now.');
-            discordPayload.embeds[0].fields = discordPayload.embeds[0].fields.filter(field => !field.name.includes('Files'));
+
+        let discordPayload;
+        if (githubPayload.commits) {
+            discordPayload = await createDiscordPayload(githubPayload);
+        } else if (githubPayload.issue) {
+            discordPayload = await createIssuePayload(githubPayload);
+        } else {
+            console.warn('Unsupported GitHub event type.');
             return;
         }
+
+        if (JSON.stringify(discordPayload).length >= 1024) {
+            console.error('[ERROR] Discord payload exceeds 1024 characters. Splitting into multiple messages is not supported YET. Hiding Full File List for now.');
+            discordPayload.embeds[0].fields = discordPayload.embeds[0].fields.filter(field => !field.name.includes('Files'));
+        }
+
         await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
             headers: { 'Content-Type': 'application/json' }
         });
