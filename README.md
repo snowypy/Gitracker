@@ -1,8 +1,5 @@
 # 🚀 Git Tracker (gitracker)
 
-> [!NOTE]
-> This app was made in 1.5 hours please forgive any issues, during testing there were 0 issues (Javascript testing). Feel free to create a github issue if you want me to add any logos to the public build.
-
 > [!IMPORTANT]
 > Any issues? Email `me@snowyjs.lol` or contact me on discord @ `snowyjs`. I would love to help!
 > If you don't want to do either of them simply make a new issue [Here](https://github.com/snowypy/Gitracker/issues/new)
@@ -17,7 +14,7 @@
 
 # Example Workflow File:
 
-```
+```yaml
 name: CI
 
 on:
