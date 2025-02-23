@@ -193,6 +193,9 @@ async function createDiscordPayload(githubPayload) {
         timestamp: new Date(commits[0].timestamp).toISOString(),
         footer: {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
+        },
+        thumbnail: {
+            url: mostUsedLang.logoUrl
         }
     };
 
