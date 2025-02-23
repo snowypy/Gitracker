@@ -238,8 +238,8 @@ async function createDiscordPayload(githubPayload) {
     // [LINE CHANGES]
     if (lineChanges) {
         baseEmbed.fields.push({
-            name: `:laptop: Line Changes (${lineChanges.totalChanges} total changes)`,
-            value: `**+**${lineChanges.totalAdditions} new lines **-**${lineChanges.totalDeletions} removed lines`,
+            name: `💻 Line Changes (${lineChanges.totalChanges})`,
+            value: `+${lineChanges.totalAdditions} new lines -${lineChanges.totalDeletions} removed lines`,
             inline: false
         });
     }
