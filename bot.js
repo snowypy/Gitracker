@@ -33,7 +33,14 @@ function getGitHubUserAvatar(username) {
 }
 
 function getLanguageLogoPath(language) {
-    return `https://raw.githubusercontent.com/snowypy/Gitracker/refs/heads/master/assets/languages/${language}.png`;
+    if (!language) return null;
+    
+    const fallbackLogo = 'https://avatars.githubusercontent.com/u/133208096?v=4';
+    
+    const logoUrl = `https://raw.githubusercontent.com/snowypy/Gitracker/refs/heads/master/assets/languages/${language}.png`;
+    return axios.get(logoUrl)
+        .then(() => logoUrl)
+        .catch(() => fallbackLogo);
 }
 
 async function fetchCommitStats(owner, repo, commitSha) {
@@ -105,7 +112,7 @@ async function getCommitsLineChanges(owner, repo, commitShas) {
     };
 }
 
-function analyzeFiles(commits, allFileChanges) {
+async function analyzeFiles(commits, allFileChanges) {
     const languageCounts = {};
     const fileCategories = {
         added: new Set(),
@@ -115,9 +122,6 @@ function analyzeFiles(commits, allFileChanges) {
 
     commits.forEach(commit => {
         const { added, modified, removed } = allFileChanges[commit.id] || {};
-
-        console.debug(`Analyzing commit ${commit.id}:`, { added, modified, removed });
-
         [...added, ...modified].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
@@ -130,18 +134,19 @@ function analyzeFiles(commits, allFileChanges) {
         removed.forEach(file => fileCategories.removed.add(file));
     });
 
-    console.debug('Language counts:', languageCounts);
     let mostUsedLang = null;
     let maxCount = 0;
-    Object.entries(languageCounts).forEach(([ext, count]) => {
+    
+    for (const [ext, count] of Object.entries(languageCounts)) {
         if (count > maxCount) {
             maxCount = count;
+            const logoUrl = await getLanguageLogoPath(languageExtensions[ext].logo);
             mostUsedLang = {
                 ...languageExtensions[ext],
-                logoUrl: getLanguageLogoPath(languageExtensions[ext].logo)
+                logoUrl
             };
         }
-    });
+    }
 
     return {
         mostUsedLang,
@@ -223,7 +228,7 @@ async function createDiscordPayload(githubPayload) {
     // [FILE CATEGORIES]
     // This is used to categorize the files into different categories.
     
-    const { fileCategories } = analyzeFiles(commits, allFileChanges);
+    const { fileCategories } = await analyzeFiles(commits, allFileChanges);
     
     const fileCategoriesToProcess = [
         { name: '📝 Added Files', files: fileCategories.added },
