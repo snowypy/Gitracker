@@ -277,6 +277,41 @@ async function createDiscordPayload(githubPayload) {
     return { embeds };
 }
 
+async function sendDiscordWebhook(embed) {
+    try {
+        if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.startsWith('https://discord.com/api/webhooks/')) {
+            throw new Error('Invalid Discord webhook URL');
+        }
+
+        const payloadSize = JSON.stringify({ embeds: [embed] }).length;
+        if (payloadSize > 6000) {
+            console.warn(`Embed size (${payloadSize}) exceeds Discord's limit. Truncating content...`);
+        }
+
+        const response = await axios.post(DISCORD_WEBHOOK_URL, 
+            { embeds: [embed] },
+            {
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                validateStatus: function (status) {
+                    return status >= 200 && status < 300;
+                }
+            }
+        );
+
+        return response.data;
+    } catch (error) {
+        if (error.response) {
+            console.error('Discord API Error:', {
+                status: error.response.status,
+                data: error.response.data
+            });
+        }
+        throw error;
+    }
+}
+
 async function runBotLogic() {
     try {
         const githubPayload = require(process.env.GITHUB_EVENT_PATH);
@@ -290,9 +325,8 @@ async function runBotLogic() {
         const { embeds } = await createDiscordPayload(githubPayload);
         
         for (const embed of embeds) {
-            await axios.post(DISCORD_WEBHOOK_URL, { embeds: [embed] }, {
-                headers: { 'Content-Type': 'application/json' }
-            });
+            await sendDiscordWebhook(embed);
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         console.info(`[INFO] Discord notification(s) sent successfully (${embeds.length} embeds).`);
