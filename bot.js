@@ -226,7 +226,11 @@ async function createDiscordPayload(githubPayload) {
 
     // [COMMIT LIST]
     const commitList = commits
-        .map(commit => `[\`${commit.id.substring(0, 7)}\`](${commit.url}) ${commit.message.split('\n')[0]}`)
+        .map(commit => {
+            const shortMessage = commit.message.split('\n')[0].substring(0, 100);
+            return `[\`${commit.id.substring(0, 7)}\`](${commit.url}) ${shortMessage}${shortMessage.length > 100 ? '...' : ''}`;
+        })
+        .slice(0, 10)
         .join('\n');
 
     baseEmbed.fields.push({
@@ -277,35 +281,66 @@ async function createDiscordPayload(githubPayload) {
     return { embeds };
 }
 
+function validateEmbed(embed) {
+    const limits = {
+        title: 256,
+        description: 4096,
+        fields: 25,
+        field: {
+            name: 256,
+            value: 1024
+        },
+        footer: {
+            text: 2048
+        },
+        author: {
+            name: 256
+        }
+    };
+
+    if (embed.title && embed.title.length > limits.title) {
+        embed.title = embed.title.substring(0, limits.title - 3) + '...';
+    }
+    
+    if (embed.description && embed.description.length > limits.description) {
+        embed.description = embed.description.substring(0, limits.description - 3) + '...';
+    }
+
+    if (embed.fields && embed.fields.length > 0) {
+        embed.fields = embed.fields.slice(0, limits.fields).map(field => ({
+            name: field.name?.substring(0, limits.field.name) || 'Field',
+            value: field.value?.substring(0, limits.field.value) || 'No content',
+            inline: !!field.inline
+        }));
+    }
+
+    return embed;
+}
+
 async function sendDiscordWebhook(embed) {
     try {
-        if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.startsWith('https://discord.com/api/webhooks/')) {
-            throw new Error('Invalid Discord webhook URL');
+        const validatedEmbed = validateEmbed(embed);
+        const payload = { embeds: [validatedEmbed] };
+        
+        if (JSON.stringify(payload).length > 6000) {
+            console.warn('Payload too large, truncating content...');
+
+            validatedEmbed.fields = validatedEmbed.fields?.slice(0, 5) || [];
         }
 
-        const payloadSize = JSON.stringify({ embeds: [embed] }).length;
-        if (payloadSize > 6000) {
-            console.warn(`Embed size (${payloadSize}) exceeds Discord's limit. Truncating content...`);
-        }
-
-        const response = await axios.post(DISCORD_WEBHOOK_URL, 
-            { embeds: [embed] },
-            {
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                validateStatus: function (status) {
-                    return status >= 200 && status < 300;
-                }
+        const response = await axios.post(DISCORD_WEBHOOK_URL, payload, {
+            headers: { 
+                'Content-Type': 'application/json'
             }
-        );
+        });
 
         return response.data;
     } catch (error) {
-        if (error.response) {
+        if (error.response?.data) {
             console.error('Discord API Error:', {
                 status: error.response.status,
-                data: error.response.data
+                data: error.response.data,
+                payload: embed
             });
         }
         throw error;
