@@ -188,6 +188,7 @@ async function createDiscordPayload(githubPayload) {
     }
 
     const { mostUsedLang, fileCategories } = await analyzeFiles(commits, allFileChanges);
+    const lineChanges = await getCommitsLineChanges(repo.owner.login, repo.name, commits.map(c => c.id));
     
     const baseEmbed = {
         title: WEBHOOK_TITLE || `:sparkles: **Service Update Deployed!** :rocket:`,
@@ -210,7 +211,6 @@ async function createDiscordPayload(githubPayload) {
     const embeds = [baseEmbed];
     
     // [BASE FIELDS]
-    // This is used to add the bare bones to the embed..
     baseEmbed.fields = [
         {
             name: 'Repository',
@@ -225,7 +225,6 @@ async function createDiscordPayload(githubPayload) {
     ];
 
     // [COMMIT LIST]
-    // This is used to list the commits in a readable format.
     const commitList = commits
         .map(commit => `[\`${commit.id.substring(0, 7)}\`](${commit.url}) ${commit.message.split('\n')[0]}`)
         .join('\n');
@@ -236,9 +235,16 @@ async function createDiscordPayload(githubPayload) {
         inline: false
     });
 
+    // [LINE CHANGES]
+    if (lineChanges) {
+        baseEmbed.fields.push({
+            name: `:laptop: Line Changes (${lineChanges.totalChanges} total changes)`,
+            value: `**+**${lineChanges.totalAdditions} new lines **-**${lineChanges.totalDeletions} removed lines`,
+            inline: false
+        });
+    }
+
     // [FILE CATEGORIES]
-    // This is used to categorize the files into different categories.
-    
     const fileCategoriesToProcess = [
         { name: '📝 Added Files', files: fileCategories.added },
         { name: '📝 Modified Files', files: fileCategories.modified },
