@@ -176,6 +176,9 @@ async function createDiscordPayload(githubPayload) {
     // [COLLECT FILE CHANGES]
     // This is used to collect the file changes for all commits.
     const allFileChanges = {};
+    const mostUsedLang = await analyzeFiles(commits, allFileChanges);
+    const mostUsedLangLogo = await getLanguageLogoPath(mostUsedLang.mostUsedLang.logo);
+
     for (const commit of commits) {
         const fileChanges = await fetchCommitFiles(repo.owner.login, repo.name, commit.id);
         allFileChanges[commit.id] = fileChanges;
@@ -195,7 +198,7 @@ async function createDiscordPayload(githubPayload) {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
         },
         thumbnail: {
-            url: mostUsedLang.logoUrl
+            url: mostUsedLangLogo
         }
     };
 
