@@ -134,17 +134,25 @@ async function analyzeFiles(commits, allFileChanges) {
         removed.forEach(file => fileCategories.removed.add(file));
     });
 
-    let mostUsedLang = null;
+    let mostUsedLang = {
+        name: 'Unknown',
+        logo: 'unknown',
+        logoUrl: 'https://avatars.githubusercontent.com/u/133208096?v=4'
+    };
     let maxCount = 0;
     
     for (const [ext, count] of Object.entries(languageCounts)) {
         if (count > maxCount) {
             maxCount = count;
-            const logoUrl = await getLanguageLogoPath(languageExtensions[ext].logo);
-            mostUsedLang = {
-                ...languageExtensions[ext],
-                logoUrl
-            };
+            const langInfo = languageExtensions[ext];
+            if (langInfo) {
+                const logoUrl = await getLanguageLogoPath(langInfo.logo);
+                mostUsedLang = {
+                    name: langInfo.name,
+                    logo: langInfo.logo,
+                    logoUrl: logoUrl
+                };
+            }
         }
     }
 
@@ -173,17 +181,14 @@ function formatFileList(files, limit = 10) {
 async function createDiscordPayload(githubPayload) {
     const { commits, repository: repo } = githubPayload;
     
-    // [COLLECT FILE CHANGES]
-    // This is used to collect the file changes for all commits.
     const allFileChanges = {};
-    const mostUsedLang = await analyzeFiles(commits, allFileChanges);
-    const mostUsedLangLogo = await getLanguageLogoPath(mostUsedLang.mostUsedLang.logo);
-    
     for (const commit of commits) {
         const fileChanges = await fetchCommitFiles(repo.owner.login, repo.name, commit.id);
         allFileChanges[commit.id] = fileChanges;
     }
 
+    const { mostUsedLang, fileCategories } = await analyzeFiles(commits, allFileChanges);
+    
     const baseEmbed = {
         title: WEBHOOK_TITLE || `:sparkles: **Service Update Deployed!** :rocket:`,
         description: `**${commits.length}** new commit${commits.length > 1 ? 's' : ''} to **${repo.name}** by **${repo.owner.login}**`,
@@ -198,7 +203,7 @@ async function createDiscordPayload(githubPayload) {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
         },
         thumbnail: {
-            url: mostUsedLang.logoUrl
+            url: mostUsedLang.logoUrl || 'https://avatars.githubusercontent.com/u/133208096?v=4'
         }
     };
 
@@ -233,8 +238,6 @@ async function createDiscordPayload(githubPayload) {
 
     // [FILE CATEGORIES]
     // This is used to categorize the files into different categories.
-    
-    const { fileCategories } = await analyzeFiles(commits, allFileChanges);
     
     const fileCategoriesToProcess = [
         { name: '📝 Added Files', files: fileCategories.added },
