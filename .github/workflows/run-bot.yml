@@ -27,6 +27,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+          WEBHOOK_TITLE: ${{ secrets.WEBHOOK_TITLE }} # Title of the base embed.
+          WEBHOOK_COLOR: ${{ secrets.WEBHOOK_COLOR }} # Color of the embed(s).
+          DENY_SPLITTING: ${{ secrets.DENY_SPLITTING }} # Whether to deny splitting the embed(s). (EXPERIMENTAL)
         run: node bot.js
 
 permissions:

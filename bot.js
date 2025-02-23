@@ -3,9 +3,11 @@ const axios = require('axios');
 require('dotenv').config();
 
 const {
-    GITHUB_WEBHOOK_SECRET,
     DISCORD_WEBHOOK_URL,
-    GITHUB_TOKEN
+    GITHUB_TOKEN,
+    WEBHOOK_TITLE,
+    WEBHOOK_COLOR,
+    DENY_SPLITTING
 } = process.env;
 
 const languageExtensions = {
@@ -159,138 +161,84 @@ function formatFileList(files, limit = 10) {
 
 async function createDiscordPayload(githubPayload) {
     const { commits, repository: repo } = githubPayload;
-    console.debug('Received GitHub payload:', { commits, repo });
-
-    const allFileChanges = {};
-    for (const commit of commits) {
-        const fileChanges = await fetchCommitFiles(repo.owner.login, repo.name, commit.id);
-        allFileChanges[commit.id] = fileChanges;
-    }
-
-    const { mostUsedLang, fileCategories } = analyzeFiles(commits, allFileChanges);
-    const authorUsername = commits[0].author.username;
-    const avatarUrl = getGitHubUserAvatar(authorUsername);
-    const { totalAdditions, totalDeletions, totalChanges } = await getCommitsLineChanges(
-        repo.owner.login,
-        repo.name,
-        commits.map(commit => commit.id)
-    );
-
-    const embed = {
-        title: `:sparkles: **Service Update Deployed!** :rocket:`,
+    const baseEmbed = {
+        title: WEBHOOK_TITLE || `:sparkles: **Service Update Deployed!** :rocket:`,
         description: `**${commits.length}** new commit${commits.length > 1 ? 's' : ''} to **${repo.name}** by **${repo.owner.login}**`,
-        color: 0x1ABC9C,
+        color: WEBHOOK_COLOR || 0x1ABC9C,
         author: {
             name: commits[0].author.name,
-            url: `https://github.com/${authorUsername}`,
-            icon_url: avatarUrl
+            url: `https://github.com/${commits[0].author.username}`,
+            icon_url: getGitHubUserAvatar(commits[0].author.username)
         },
-        fields: [
-            {
-                name: 'Repository',
-                value: repo.full_name,
-                inline: true
-            },
-            {
-                name: 'Branch',
-                value: githubPayload.ref.replace('refs/heads/', ''),
-                inline: true
-            }
-        ],
         timestamp: new Date(commits[0].timestamp).toISOString(),
         footer: {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
         }
     };
 
-    if (mostUsedLang) {
-        embed.thumbnail = {
-            url: mostUsedLang.logoUrl
-        };
-        embed.fields.push({
-            name: 'Primary Language',
-            value: mostUsedLang.name,
+    const embeds = [baseEmbed];
+    
+    // [BASE FIELDS]
+    // This is used to add the bare bones to the embed..
+    baseEmbed.fields = [
+        {
+            name: 'Repository',
+            value: repo.full_name,
             inline: true
-        });
-    }
+        },
+        {
+            name: 'Branch',
+            value: githubPayload.ref.replace('refs/heads/', ''),
+            inline: true
+        }
+    ];
 
+    // [COMMIT LIST]
+    // This is used to list the commits in a readable format.
     const commitList = commits
         .map(commit => `[\`${commit.id.substring(0, 7)}\`](${commit.url}) ${commit.message.split('\n')[0]}`)
         .join('\n');
 
-    embed.fields.push({
+    baseEmbed.fields.push({
         name: `📋 Recent Commits (${commits.length})`,
         value: commitList || '_No commits available_',
         inline: false
     });
 
-    if (fileCategories.added.length > 0) {
-        embed.fields.push({
-            name: `📝 Added Files (${fileCategories.added.length})`,
-            value: formatFileList(fileCategories.added),
+    // [FILE CATEGORIES]
+    // This is used to categorize the files into different categories.
+    const { fileCategories } = analyzeFiles(commits, allFileChanges);
+    
+    const fileCategoriesToProcess = [
+        { name: '📝 Added Files', files: fileCategories.added },
+        { name: '📝 Modified Files', files: fileCategories.modified },
+        { name: '🗑️ Removed Files', files: fileCategories.removed }
+    ];
+
+    for (const category of fileCategoriesToProcess) {
+        if (category.files.length === 0) continue;
+
+        const formattedFiles = formatFileList(category.files);
+        const fieldContent = {
+            name: `${category.name} (${category.files.length})`,
+            value: formattedFiles,
             inline: false
-        });
-    }
+        };
 
-    if (fileCategories.modified.length > 0) {
-        embed.fields.push({
-            name: `📝 Modified Files (${fileCategories.modified.length})`,
-            value: formatFileList(fileCategories.modified),
-            inline: false
-        });
-    }
-
-    if (fileCategories.removed.length > 0) {
-        embed.fields.push({
-            name: `🗑️ Removed Files (${fileCategories.removed.length})`,
-            value: formatFileList(fileCategories.removed),
-            inline: false
-        });
-    }
-
-    embed.fields.push({
-        name: `💻 Line Changes (${totalChanges})`,
-        value: `+${totalAdditions} new lines -${totalDeletions} removed lines`,
-        inline: false
-    });
-
-    console.debug('Constructed Discord embed payload:', embed);
-    return { embeds: [embed] };
-}
-
-async function createIssuePayload(githubPayload) {
-    const { issue, repository: repo } = githubPayload;
-    console.debug('Received GitHub issue payload:', { issue, repo });
-
-    const embed = {
-        title: `:bug: **New Issue Created!** :beetle:`,
-        description: `**${issue.title}**\n\n${issue.body}`,
-        color: 0xE74C3C,
-        author: {
-            name: issue.user.login,
-            url: `https://github.com/${issue.user.login}`,
-            icon_url: getGitHubUserAvatar(issue.user.login)
-        },
-        fields: [
-            {
-                name: 'Repository',
-                value: repo.full_name,
-                inline: true
-            },
-            {
-                name: 'Issue Number',
-                value: `#${issue.number}`,
-                inline: true
-            }
-        ],
-        timestamp: new Date(issue.created_at).toISOString(),
-        footer: {
-            text: `Issue ID: ${issue.id}`
+        // [SPLITTING]
+        // If the field is too long, it gets split into it's own embed.
+        if (JSON.stringify([...baseEmbed.fields, fieldContent]).length < 1024) {
+            baseEmbed.fields.push(fieldContent);
+        } else {
+            embeds.push({
+                title: `${category.name} (${category.files.length})`,
+                description: formattedFiles,
+                color: baseEmbed.color
+            });
         }
-    };
+    }
 
-    console.debug('Constructed Discord issue payload:', embed);
-    return { embeds: [embed] };
+    return { embeds };
 }
 
 async function runBotLogic() {
@@ -298,25 +246,20 @@ async function runBotLogic() {
         const githubPayload = require(process.env.GITHUB_EVENT_PATH);
         console.debug('Running bot logic with GitHub payload:', githubPayload);
 
-        let discordPayload;
-        if (githubPayload.commits) {
-            discordPayload = await createDiscordPayload(githubPayload);
-        } else if (githubPayload.issue) {
-            discordPayload = await createIssuePayload(githubPayload);
-        } else {
+        if (!githubPayload.commits) {
             console.warn('Unsupported GitHub event type.');
             return;
         }
 
-        if (JSON.stringify(discordPayload).length >= 1024) {
-            console.error('[ERROR] Discord payload exceeds 1024 characters. Splitting into multiple messages is not supported YET. Hiding Full File List for now.');
-            discordPayload.embeds[0].fields = discordPayload.embeds[0].fields.filter(field => !field.name.includes('Files'));
+        const { embeds } = await createDiscordPayload(githubPayload);
+        
+        for (const embed of embeds) {
+            await axios.post(DISCORD_WEBHOOK_URL, { embeds: [embed] }, {
+                headers: { 'Content-Type': 'application/json' }
+            });
         }
-
-        await axios.post(DISCORD_WEBHOOK_URL, discordPayload, {
-            headers: { 'Content-Type': 'application/json' }
-        });
-        console.info('[INFO] Discord notification sent successfully.');
+        
+        console.info(`[INFO] Discord notification(s) sent successfully (${embeds.length} embeds).`);
     } catch (error) {
         console.error('Error processing webhook:', error);
     }
