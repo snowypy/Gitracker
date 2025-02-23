@@ -108,9 +108,9 @@ async function getCommitsLineChanges(owner, repo, commitShas) {
 function analyzeFiles(commits, allFileChanges) {
     const languageCounts = {};
     const fileCategories = {
-        added: [],
-        modified: [],
-        removed: []
+        added: new Set(),
+        modified: new Set(),
+        removed: new Set()
     };
 
     commits.forEach(commit => {
@@ -125,9 +125,9 @@ function analyzeFiles(commits, allFileChanges) {
             }
         });
 
-        fileCategories.added.push(...added);
-        fileCategories.modified.push(...modified);
-        fileCategories.removed.push(...removed);
+        added.forEach(file => fileCategories.added.add(file));
+        modified.forEach(file => fileCategories.modified.add(file));
+        removed.forEach(file => fileCategories.removed.add(file));
     });
 
     console.debug('Language counts:', languageCounts);
@@ -143,8 +143,14 @@ function analyzeFiles(commits, allFileChanges) {
         }
     });
 
-    console.debug(`Most used language:`, mostUsedLang);
-    return { mostUsedLang, fileCategories };
+    return {
+        mostUsedLang,
+        fileCategories: {
+            added: Array.from(fileCategories.added),
+            modified: Array.from(fileCategories.modified),
+            removed: Array.from(fileCategories.removed)
+        }
+    };
 }
 
 function formatFileList(files, limit = 10) {
