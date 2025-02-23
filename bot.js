@@ -121,7 +121,7 @@ async function analyzeFiles(commits, allFileChanges) {
     };
 
     commits.forEach(commit => {
-        const { added, modified, removed } = allFileChanges[commit.id] || {};
+        const { added = [], modified = [], removed = [] } = allFileChanges[commit.id] || {};
         [...added, ...modified].forEach(file => {
             const ext = file.split('.').pop().toLowerCase();
             if (languageExtensions[ext]) {
@@ -178,7 +178,7 @@ async function createDiscordPayload(githubPayload) {
     const allFileChanges = {};
     const mostUsedLang = await analyzeFiles(commits, allFileChanges);
     const mostUsedLangLogo = await getLanguageLogoPath(mostUsedLang.mostUsedLang.logo);
-
+    
     for (const commit of commits) {
         const fileChanges = await fetchCommitFiles(repo.owner.login, repo.name, commit.id);
         allFileChanges[commit.id] = fileChanges;
@@ -198,7 +198,7 @@ async function createDiscordPayload(githubPayload) {
             text: `Latest Commit: ${commits[0].id.substring(0, 7)}`
         },
         thumbnail: {
-            url: mostUsedLangLogo
+            url: mostUsedLang.logoUrl
         }
     };
 
