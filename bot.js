@@ -161,6 +161,15 @@ function formatFileList(files, limit = 10) {
 
 async function createDiscordPayload(githubPayload) {
     const { commits, repository: repo } = githubPayload;
+    
+    // [COLLECT FILE CHANGES]
+    // This is used to collect the file changes for all commits.
+    const allFileChanges = {};
+    for (const commit of commits) {
+        const fileChanges = await fetchCommitFiles(repo.owner.login, repo.name, commit.id);
+        allFileChanges[commit.id] = fileChanges;
+    }
+
     const baseEmbed = {
         title: WEBHOOK_TITLE || `:sparkles: **Service Update Deployed!** :rocket:`,
         description: `**${commits.length}** new commit${commits.length > 1 ? 's' : ''} to **${repo.name}** by **${repo.owner.login}**`,
@@ -207,6 +216,7 @@ async function createDiscordPayload(githubPayload) {
 
     // [FILE CATEGORIES]
     // This is used to categorize the files into different categories.
+    
     const { fileCategories } = analyzeFiles(commits, allFileChanges);
     
     const fileCategoriesToProcess = [
